@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B1L1 課文與句型大挑戰 | Quiz Challenge</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js CDN (Fixed Exact Version 3.14.8) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans TC"', 'sans-serif'],
+            orbitron: ['Orbitron', 'sans-serif'],
+          },
+          colors: {
+            quiz: {
+              950: '#0B0A18',
+              900: '#13112E',
+              800: '#1E1B4B',
+              pink: '#FF007A',
+              cyan: '#00F0FF',
+              purple: '#A855F7',
+              emerald: '#10B981',
+              yellow: '#F59E0B'
+            }
+          },
+          animation: {
+            'bounce-short': 'bounce 0.8s ease-in-out 1',
+            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    };
+
+    // Web Audio Synthesizer
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function PlaySound(type) {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        if (type === 'correct') {
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+            gain.gain.setValueAtTime(0.2, now + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.25);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + idx * 0.08);
+            osc.stop(now + idx * 0.08 + 0.25);
+          });
+        } else if (type === 'wrong') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        } else if (type === 'click') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.05);
+        } else if (type === 'victory') {
+          const notes = [440, 554.37, 659.25, 880];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+            gain.gain.setValueAtTime(0.3, now + idx * 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.4);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + idx * 0.12);
+            osc.stop(now + idx * 0.12 + 0.4);
+          });
+        }
+      } catch (e) {
+        console.log('Audio Error:', e);
+      }
+    }
+
+    const QUIZ_QUESTIONS = [
+      {
+        category: '課文閱讀：Robbie 的線上課程',
+        sentence: 'I never thought that I could take classes in my _____!',
+        options: ['pajamas', 'uniforms', 'raincoats', 'slippers'],
+        answer: 0,
+        explanation: '課文第一段：Robbie 在線上課程文章中提到「I never thought that I could take classes in my pajamas!」（我從沒想過能穿著睡衣上課！）'
+      },
+      {
+        category: '課文閱讀：Robbie 的線上課程',
+        sentence: 'Another time, our teacher accidentally turned on a funny _____ on her camera.',
+        options: ['filter', 'light', 'music', 'background'],
+        answer: 0,
+        explanation: '課文內容：Robbie 的老師意外開啟了鏡頭 filter（濾鏡），讓老師看起來像外星人一樣。'
+      },
+      {
+        category: '課文閱讀：Claire 的第一次失敗',
+        sentence: 'However, I didn\'t take the task seriously and _____ several group meetings.',
+        options: ['skipped', 'joined', 'planned', 'led'],
+        answer: 0,
+        explanation: '課文第二段：Claire 沒有認真看待報告任務，因而 skipped（故意不參加/跳過）了好幾次小組會議。'
+      },
+      {
+        category: '課文閱讀：Claire 的第一次失敗',
+        sentence: 'When the time came for me to step onto the stage, I _____ the presentation and felt embarrassed.',
+        options: ['ruined', 'saved', 'loved', 'passed'],
+        answer: 0,
+        explanation: '課文內容：由於準備不足，Claire 上台後 ruined（搞砸了）整個團隊簡報。'
+      },
+      {
+        category: '課文閱讀：Claire 的第一次失敗',
+        sentence: 'We got a very low grade, and I felt _____ about letting the team down.',
+        options: ['depressed', 'excited', 'fortunate', 'proud'],
+        answer: 0,
+        explanation: '課文內容：得到低分後，Claire 為讓團隊失望感到非常 depressed（沮喪的）。'
+      },
+      {
+        category: '課文閱讀：Nancy 的海外首旅',
+        sentence: 'I soon realized that the markets in Seoul were a treat for my other _____.',
+        options: ['senses', 'hands', 'books', 'eyes'],
+        answer: 0,
+        explanation: '課文第三段：Nancy 在首爾的體驗中寫道：「markets were a treat for my other senses」（市場對感官是極大享受）。'
+      },
+      {
+        category: '課文閱讀：Nancy 的海外首旅',
+        sentence: 'My Korean was poor, but _____, everyone was very friendly.',
+        options: ['fortunately', 'accidentally', 'embarrassingly', 'terribly'],
+        answer: 0,
+        explanation: '課文內容：雖然韓文不夠流利，但 fortunately（幸運地）大家都很親切。'
+      },
+      {
+        category: '本單元句型：名詞子句 (S + V + that + S + V)',
+        sentence: 'I think _____ Melissa is really outgoing and friendly.',
+        options: ['that', 'which', 'who', 'what'],
+        answer: 0,
+        explanation: '句型重點：表達想法的動詞 (think, know, believe) 後面，名詞子句由連接詞「that」引導。'
+      },
+      {
+        category: '本單元句型：名詞子句與情緒形容詞',
+        sentence: 'Ian\'s girlfriend was late again, so Ian was _____ that she kept him waiting.',
+        options: ['upset', 'delicious', 'traditional', 'accidental'],
+        answer: 0,
+        explanation: '句型重點：that 引導的名詞子句置於情緒形容詞 (upset, surprised, worried) 後面補充說明原因。'
+      },
+      {
+        category: '課文總結與應用',
+        sentence: 'These days, this memory _____ me to prepare well and make sure I put my team first!',
+        options: ['reminds', 'yells', 'skips', 'ruins'],
+        answer: 0,
+        explanation: '課文結尾：Claire 表示：「this memory reminds me...」（這個回憶提醒我隨時做好準備，把團隊放在第一位）。'
+      }
+    ];
+
+    function quizApp() {
+      return {
+        gameState: 'start',
+        soundEnabled: true,
+        questions: [],
+        currentQuestionIndex: 0,
+        currentQuestion: QUIZ_QUESTIONS[0],
+        score: 0,
+        timeLeft: 15,
+        maxTime: 15,
+        timer: null,
+        selectedIndex: null,
+        isAnswered: false,
+        showWrongModal: false,
+        modalTitle: '',
+        correctSentenceText: '',
+        modalCountdown: 3,
+        modalTimer: null,
+
+        initQuiz() {
+          this.prepareQuestions();
+        },
+
+        prepareQuestions() {
+          this.questions = QUIZ_QUESTIONS.map(q => {
+            const opts = [...q.options];
+            const correctText = opts[q.answer];
+            const shuffledOpts = [...opts].sort(() => Math.random() - 0.5);
+            const newAnswerIdx = shuffledOpts.indexOf(correctText);
+            return {
+              ...q,
+              options: shuffledOpts,
+              answer: newAnswerIdx
+            };
+          });
+        },
+
+        playSound(type) {
+          if (this.soundEnabled) PlaySound(type);
+        },
+
+        toggleSound() {
+          this.soundEnabled = !this.soundEnabled;
+          this.playSound('click');
+        },
+
+        startQuiz() {
+          this.playSound('click');
+          this.prepareQuestions();
+          this.gameState = 'playing';
+          this.currentQuestionIndex = 0;
+          this.score = 0;
+          this.loadQuestion(0);
+        },
+
+        loadQuestion(index) {
+          this.currentQuestionIndex = index;
+          this.currentQuestion = this.questions[index];
+          this.selectedIndex = null;
+          this.isAnswered = false;
+          this.showWrongModal = false;
+          this.resetTimer();
+        },
+
+        resetTimer() {
+          if (this.timer) clearInterval(this.timer);
+          this.timeLeft = 15;
+          this.maxTime = 15;
+
+          this.timer = setInterval(() => {
+            if (this.timeLeft > 0) {
+              this.timeLeft--;
+            } else {
+              clearInterval(this.timer);
+              if (!this.isAnswered) {
+                this.handleTimeout();
+              }
+            }
+          }, 1000);
+        },
+
+        get formattedSentence() {
+          if (!this.currentQuestion) return '';
+          return this.currentQuestion.sentence.replace(
+            '_____', 
+            `<span class="px-3 py-1 rounded bg-quiz-purple/30 border-b-2 border-quiz-cyan text-quiz-cyan font-mono font-bold">_____</span>`
+          );
+        },
+
+        selectOption(index) {
+          if (this.isAnswered) return;
+          this.isAnswered = true;
+          this.selectedIndex = index;
+          if (this.timer) clearInterval(this.timer);
+
+          if (index === this.currentQuestion.answer) {
+            this.score += 10;
+            this.playSound('correct');
+
+            try {
+              if (typeof confetti === 'function') {
+                confetti({
+                  particleCount: 70,
+                  spread: 70,
+                  origin: { y: 0.6 }
+                });
+              }
+            } catch (e) {}
+
+            setTimeout(() => {
+              this.nextQuestion();
+            }, 1200);
+
+          } else {
+            this.playSound('wrong');
+            this.triggerWrongModal('答錯了！');
+          }
+        },
+
+        handleTimeout() {
+          this.isAnswered = true;
+          this.selectedIndex = -1;
+          this.playSound('wrong');
+          this.triggerWrongModal('⏱️ 時間到！倒數結束');
+        },
+
+        triggerWrongModal(title) {
+          this.modalTitle = title;
+          const correctWord = this.currentQuestion.options[this.currentQuestion.answer];
+          this.correctSentenceText = this.currentQuestion.sentence.replace(
+            '_____', 
+            `<span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-300 font-bold underline decoration-2">${correctWord}</span>`
+          );
+
+          this.showWrongModal = true;
+          this.modalCountdown = 3;
+
+          if (this.modalTimer) clearInterval(this.modalTimer);
+          this.modalTimer = setInterval(() => {
+            if (this.modalCountdown > 1) {
+              this.modalCountdown--;
+            } else {
+              this.closeWrongModal();
+            }
+          }, 1000);
+        },
+
+        closeWrongModal() {
+          if (this.modalTimer) clearInterval(this.modalTimer);
+          this.showWrongModal = false;
+          this.nextQuestion();
+        },
+
+        nextQuestion() {
+          if (this.currentQuestionIndex + 1 < this.questions.length) {
+            this.loadQuestion(this.currentQuestionIndex + 1);
+          } else {
+            this.triggerSummary();
+          }
+        },
+
+        triggerSummary() {
+          if (this.timer) clearInterval(this.timer);
+          this.gameState = 'summary';
+          this.playSound('victory');
+
+          if (this.score >= 80) {
+            try {
+              if (typeof confetti === 'function') {
+                confetti({
+                  particleCount: 150,
+                  spread: 100,
+                  origin: { y: 0.5 }
+                });
+              }
+            } catch(e) {}
+          }
+        },
+
+        get performanceRank() {
+          if (this.score === 100) return 'S 級大滿貫';
+          if (this.score >= 80) return 'A 級優等生';
+          if (this.score >= 60) return 'B 級合格';
+          return 'C 級需再加油';
+        }
+      };
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0B0A18;
+      color: #F1F5F9;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .glass-card {
+      background: rgba(19, 17, 46, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .option-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .option-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+      border-color: rgba(168, 85, 247, 0.6);
+    }
+    .progress-bar-glow {
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+    }
+    .time-bar-glow {
+      box-shadow: 0 0 12px rgba(255, 0, 122, 0.6);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between font-sans relative selection:bg-quiz-pink selection:text-white" x-data="quizApp()" x-init="initQuiz()">
+
+  <!-- Background Ambient Glow -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-quiz-purple/20 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/2 -right-40 w-96 h-96 bg-quiz-cyan/20 rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-40 left-1/3 w-96 h-96 bg-quiz-pink/20 rounded-full blur-3xl"></div>
+  </div>
+
+  <!-- Header / Navigation -->
+  <header class="relative z-10 w-full px-6 py-4 glass-card border-b border-white/10">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-4">
+        <a href="../index.html" @click="playSound('click')" class="px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-600 flex items-center gap-1.5 transition">
+          <span>&larr;</span> 返回首頁
+        </a>
+        <div class="h-4 w-px bg-slate-700"></div>
+        <h1 class="text-lg md:text-xl font-black font-orbitron text-white flex items-center gap-2">
+          <span class="text-quiz-purple">B1L1</span> 課文句型挑戰賽
+        </h1>
+      </div>
+
+      <div class="flex items-center space-x-4 font-orbitron text-sm">
+        <div class="hidden sm:flex items-center space-x-2 bg-slate-900/80 px-3.5 py-1.5 rounded-xl border border-slate-700">
+          <span class="text-xs text-slate-400">目前總分</span>
+          <span class="font-bold text-quiz-yellow text-lg" x-text="`${score} / 100`"></span>
+        </div>
+        <button @click="toggleSound()" class="p-2 rounded-xl bg-slate-800 text-xs text-slate-300 hover:bg-slate-700 border border-slate-600">
+          <span x-text="soundEnabled ? '🔊' : '🔇'"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="relative z-10 max-w-4xl w-full mx-auto px-4 py-8 flex-grow flex flex-col justify-center">
+
+    <!-- 1. START OVERLAY SCREEN -->
+    <div x-show="gameState === 'start'" class="w-full glass-card rounded-3xl p-8 md:p-12 border border-quiz-purple/40 text-center space-y-6 shadow-2xl">
+      <div class="inline-block px-4 py-1.5 rounded-full bg-quiz-purple/20 border border-quiz-purple/40 text-quiz-purple font-orbitron text-xs font-bold tracking-widest uppercase">
+        Sentence & Reading Quiz
+      </div>
+
+      <h2 class="text-3xl md:text-5xl font-black font-orbitron text-white leading-tight">
+        課文與句型文法 <br/>
+        <span class="bg-clip-text text-transparent bg-gradient-to-r from-quiz-cyan via-quiz-purple to-quiz-pink">
+          極限選擇題關卡
+        </span>
+      </h2>
+
+      <div class="text-left bg-slate-900/90 p-6 rounded-2xl border border-slate-800 space-y-3 text-slate-300 text-sm leading-relaxed">
+        <div class="font-bold text-quiz-cyan text-base flex items-center gap-2">
+          <span>🎯</span> 挑戰規則與血條說明：
+        </div>
+        <ul class="list-disc list-inside space-y-2 text-slate-300">
+          <li>測驗共 <strong class="text-white">10 道題目</strong>，取材自 L01 課文靈魂故事 (Robbie, Claire, Nancy) 與 <strong class="text-quiz-yellow">S + V + that + S + V</strong> 名詞子句句型。</li>
+          <li><span class="text-quiz-pink font-semibold">⏳ 時間血條</span>：每題擁有獨立 15 秒倒數倒數時間血條，時間用盡視同答錯。</li>
+          <li><span class="text-quiz-cyan font-semibold">❤️ 答題進度血條</span>：獨立顯示目前關卡進度與生命 segment，讓進度一眼明瞭。</li>
+          <li>每題答對獲得 <strong class="text-emerald-400">10 分</strong>（滿分 100 分），並伴隨慶祝特效與自動進下一題；答錯彈出解析視窗顯示正確答案。</li>
+        </ul>
+      </div>
+
+      <div class="pt-4">
+        <button @click="startQuiz()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-quiz-purple via-quiz-pink to-quiz-cyan hover:from-purple-500 hover:to-cyan-400 text-white font-black font-orbitron text-lg tracking-wider transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl shadow-purple-500/25">
+          開始答題挑戰 START QUIZ &rarr;
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. IN-GAME QUIZ CONTAINER -->
+    <div x-show="gameState === 'playing'" style="display: none;" class="w-full space-y-6">
+
+      <!-- DUAL HEALTH BARS SECTION -->
+      <div class="glass-card rounded-2xl p-5 border border-white/10 space-y-4 shadow-xl">
+        
+        <!-- Bar 1: Independent Progress / Life Health Bar (答題進度獨立血條) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs font-orbitron">
+            <span class="text-slate-400 font-bold flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-quiz-cyan animate-pulse"></span>
+              答題進度血條 (PROGRESS BAR)
+            </span>
+            <span class="text-quiz-cyan font-extrabold" x-text="`第 ${currentQuestionIndex + 1} / ${questions.length} 題`"></span>
+          </div>
+          <!-- Outer Track -->
+          <div class="w-full h-3.5 bg-slate-900 rounded-full p-0.5 border border-slate-700 overflow-hidden">
+            <!-- Progress Fill -->
+            <div 
+              class="h-full bg-gradient-to-r from-quiz-cyan via-blue-500 to-quiz-purple rounded-full transition-all duration-500 progress-bar-glow"
+              :style="`width: ${((currentQuestionIndex + 1) / questions.length) * 100}%`"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Bar 2: Question Countdown Time Health Bar (時間血條) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs font-orbitron">
+            <span class="text-slate-400 font-bold flex items-center gap-1.5">
+              <span>⏳</span>
+              倒數時間血條 (TIME REMAINING)
+            </span>
+            <span 
+              class="font-extrabold" 
+              :class="timeLeft <= 4 ? 'text-rose-500 animate-pulse-fast' : 'text-quiz-pink'"
+              x-text="`${timeLeft}s`"
+            ></span>
+          </div>
+          <!-- Outer Track -->
+          <div class="w-full h-4 bg-slate-900 rounded-full p-0.5 border border-slate-700 overflow-hidden">
+            <!-- Time Fill -->
+            <div 
+              class="h-full rounded-full transition-all duration-200 time-bar-glow"
+              :class="timeLeft <= 4 ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-gradient-to-r from-quiz-pink via-purple-500 to-amber-400'"
+              :style="`width: ${(timeLeft / maxTime) * 100}%`"
+            ></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- QUESTION CARD -->
+      <div class="glass-card rounded-3xl p-6 md:p-8 border border-white/10 space-y-6 shadow-2xl relative">
+        <div class="flex justify-between items-center">
+          <span class="px-3 py-1 rounded-lg bg-quiz-purple/20 text-quiz-purple font-orbitron text-xs font-bold border border-quiz-purple/30">
+            QUESTION <span x-text="currentQuestionIndex + 1"></span>
+          </span>
+          <span class="text-xs text-slate-400 font-medium" x-text="currentQuestion.category"></span>
+        </div>
+
+        <!-- Sentence Text with Blank -->
+        <div class="text-lg md:text-2xl font-bold text-white leading-relaxed tracking-wide pt-2">
+          <span x-html="formattedSentence"></span>
+        </div>
+
+        <div class="text-xs text-slate-400 italic">
+          💡 請從下方選項中選擇最適當的單字填入空格：
+        </div>
+
+        <!-- 4 MULTIPLE CHOICE OPTIONS GRID -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <template x-for="(opt, idx) in currentQuestion.options" :key="idx">
+            <button 
+              @click="selectOption(idx)"
+              :disabled="isAnswered"
+              class="option-card w-full p-4 rounded-2xl glass-card text-left border border-slate-700/80 flex items-center space-x-4 transition-all group"
+              :class="{
+                'hover:bg-quiz-purple/20': !isAnswered,
+                'border-emerald-500 bg-emerald-500/20 text-emerald-300': isAnswered && idx === currentQuestion.answer,
+                'border-rose-500 bg-rose-500/20 text-rose-300': isAnswered && selectedIndex === idx && idx !== currentQuestion.answer
+              }"
+            >
+              <div 
+                class="w-10 h-10 rounded-xl flex items-center justify-center font-orbitron font-bold text-base transition-colors shrink-0"
+                :class="{
+                  'bg-slate-800 text-slate-300 group-hover:bg-quiz-purple group-hover:text-white': !isAnswered,
+                  'bg-emerald-500 text-slate-950': isAnswered && idx === currentQuestion.answer,
+                  'bg-rose-500 text-white': isAnswered && selectedIndex === idx && idx !== currentQuestion.answer
+                }"
+                x-text="['A', 'B', 'C', 'D'][idx]"
+              ></div>
+
+              <div class="text-base font-semibold text-slate-200 group-hover:text-white" x-text="opt"></div>
+            </button>
+          </template>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 3. WRONG ANSWER / EXPLANATION MODAL POPUP (彈出視窗) -->
+    <div x-show="showWrongModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md" x-transition.opacity>
+      <div class="max-w-lg w-full glass-card rounded-3xl p-6 md:p-8 border border-rose-500/50 space-y-5 text-center shadow-2xl animate-bounce-short">
+        
+        <div class="w-16 h-16 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-3xl mx-auto">
+          ❌
+        </div>
+
+        <h3 class="text-2xl font-black font-orbitron text-white">
+          <span x-text="modalTitle"></span>
+        </h3>
+
+        <div class="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 text-left space-y-3">
+          <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">正確句子對照：</div>
+          <div class="text-base font-bold text-emerald-400" x-html="correctSentenceText"></div>
+
+          <div class="h-px w-full bg-slate-800"></div>
+
+          <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">解析說明：</div>
+          <div class="text-sm text-slate-300 leading-relaxed" x-text="currentQuestion.explanation"></div>
+        </div>
+
+        <div class="flex justify-between items-center text-xs text-slate-400 pt-2">
+          <span>視窗將在 <strong class="text-rose-400 font-bold" x-text="modalCountdown"></strong> 秒後自動關閉...</span>
+          <button @click="closeWrongModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition">
+            下一題 &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. GAME OVER SUMMARY SETTLEMENT SCREEN (結算畫面) -->
+    <div x-show="gameState === 'summary'" style="display: none;" class="w-full glass-card rounded-3xl p-8 md:p-10 border border-quiz-cyan/40 text-center space-y-6 shadow-2xl">
+      <div class="text-6xl animate-bounce">
+        <span x-text="score >= 80 ? '🎉' : (score >= 60 ? '👍' : '💪')"></span>
+      </div>
+
+      <h2 class="text-3xl md:text-5xl font-black font-orbitron text-white">
+        測驗結算 COMPLETE
+      </h2>
+
+      <p class="text-slate-300 text-sm">
+        恭喜完成 L01 課文與句型 10 道測驗題目！以下為您的戰績報告：
+      </p>
+
+      <!-- Score Card -->
+      <div class="bg-slate-900/90 p-6 rounded-2xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div>
+          <div class="text-xs text-slate-400 font-bold mb-1">最終總得分</div>
+          <div class="text-4xl font-black font-orbitron text-quiz-yellow" x-text="`${score} 分`"></div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 font-bold mb-1">答對題數</div>
+          <div class="text-4xl font-black font-orbitron text-emerald-400" x-text="`${score / 10} / 10`"></div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 font-bold mb-1">評級評價</div>
+          <div class="text-4xl font-black font-orbitron text-quiz-cyan" x-text="performanceRank"></div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-4 pt-4">
+        <button @click="startQuiz()" class="flex-1 py-4 rounded-2xl bg-gradient-to-r from-quiz-purple to-quiz-pink hover:from-purple-500 hover:to-pink-500 text-white font-bold font-orbitron transition shadow-lg">
+          再試一次 TRY AGAIN
+        </button>
+        <a href="../index.html" @click="playSound('click')" class="flex-1 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold font-orbitron border border-slate-600 transition text-center block">
+          返回首頁 HOME
+        </a>
+      </div>
+    </div>
+
+  </main>
+</body>
+</html>
