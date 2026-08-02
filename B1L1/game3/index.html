@@ -3,11 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>B1L1 單字貪食蛇 | Snake Word Hunt</title><!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>B1L1 單字貪食蛇 | Snake Word Hunt</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -199,14 +194,14 @@
         nextDir: { x: 1, y: 0 },
         lettersOnGrid: [],
         gameInterval: null,
-        speed: 130,
+        speedMode: 'normal', // 'slow' (250ms), 'normal' (200ms), 'fast' (140ms)
+        speed: 200, // Default relaxed speed
 
         initSnakeGame() {
           this.canvas = document.getElementById('snakeCanvas');
           if (!this.canvas) return;
           this.ctx = this.canvas.getContext('2d');
           
-          // Fixed Internal Canvas Dimensions (720 x 504)
           this.canvas.width = 720;
           this.canvas.height = 504;
 
@@ -228,6 +223,18 @@
           this.playSound('click');
         },
 
+        changeSpeedMode(mode) {
+          this.speedMode = mode;
+          if (mode === 'slow') this.speed = 250;
+          else if (mode === 'normal') this.speed = 200;
+          else if (mode === 'fast') this.speed = 140;
+
+          if (this.gameInterval && this.gameState === 'playing') {
+            clearInterval(this.gameInterval);
+            this.gameInterval = setInterval(() => this.gameTick(), this.speed);
+          }
+        },
+
         startSnake() {
           this.playSound('click');
           this.gameState = 'playing';
@@ -245,7 +252,6 @@
           if (this.gameInterval) clearInterval(this.gameInterval);
           this.gameInterval = setInterval(() => this.gameTick(), this.speed);
 
-          // Force draw initial frame
           setTimeout(() => this.drawSnakeScene(), 50);
         },
 
@@ -288,7 +294,7 @@
           const word = this.currentWordObj.word.toLowerCase();
           const targetChar = word[this.targetLetterIndex];
 
-          // 1. Spawn Target Letter
+          // 1. Spawn Target Letter (Correct letter)
           const targetPos = this.getRandomEmptyGridPos();
           this.lettersOnGrid.push({
             x: targetPos.x,
@@ -297,13 +303,13 @@
             isTarget: true
           });
 
-          // 2. Spawn 3 Decoy Letters
+          // 2. Spawn 5 Decoy Letters (散落 5 個干擾字母)
           const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-          for (let i = 0; i < 3; i++) {
+          for (let i = 0; i < 5; i++) {
             const decoyPos = this.getRandomEmptyGridPos();
             let randomChar = alphabet[Math.floor(Math.random() * alphabet.length)].toUpperCase();
             if (randomChar === targetChar.toUpperCase()) {
-              randomChar = 'Z';
+              randomChar = (targetChar.toUpperCase() === 'Z') ? 'A' : 'Z';
             }
             this.lettersOnGrid.push({
               x: decoyPos.x,
@@ -335,15 +341,15 @@
           this.dir = { ...this.nextDir };
           const head = { x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y };
 
-          // Wall Collision
+          // Wall Collision -> Death
           if (head.x < 0 || head.x >= this.gridCols || head.y < 0 || head.y >= this.gridRows) {
-            this.handleCollision();
+            this.handleCollision('撞到牆壁！');
             return;
           }
 
-          // Self Collision
+          // Self Collision -> Death
           if (this.snake.some(seg => seg.x === head.x && seg.y === head.y)) {
-            this.handleCollision();
+            this.handleCollision('撞到自己！');
             return;
           }
 
@@ -357,6 +363,7 @@
             const targetChar = this.currentWordObj.word[this.targetLetterIndex].toUpperCase();
 
             if (eaten.char === targetChar) {
+              // EAT CORRECT LETTER!
               this.playSound('eat');
               this.score += 50;
               this.targetLetterIndex++;
@@ -372,10 +379,9 @@
                 this.spawnLetters();
               }
             } else {
+              // EAT WRONG DECOY LETTER -> INSTANT DEATH! (吃錯字母立刻扣生命死掉)
               this.playSound('wrong');
-              this.score = Math.max(0, this.score - 20);
-              this.snake.pop();
-              this.handleCollision();
+              this.handleCollision(`吃錯字母 (${eaten.char})，目標是 ${targetChar}！`);
               return;
             }
           } else {
@@ -385,7 +391,7 @@
           this.drawSnakeScene();
         },
 
-        handleCollision() {
+        handleCollision(reason) {
           this.playSound('wrong');
           this.lives--;
 
@@ -486,20 +492,20 @@
               }
               this.ctx.fill();
 
-              // Draw Cute Head Eyes
+              // Draw Eyes
               this.ctx.shadowBlur = 0;
               this.ctx.fillStyle = '#FFFFFF';
               const eyeRadius = 3;
               let eye1 = { x: sx + cellW * 0.3, y: sy + cellH * 0.3 };
               let eye2 = { x: sx + cellW * 0.7, y: sy + cellH * 0.3 };
 
-              if (this.dir.x === 1) { // Facing right
+              if (this.dir.x === 1) {
                 eye1 = { x: sx + cellW * 0.7, y: sy + cellH * 0.3 };
                 eye2 = { x: sx + cellW * 0.7, y: sy + cellH * 0.7 };
-              } else if (this.dir.x === -1) { // Facing left
+              } else if (this.dir.x === -1) {
                 eye1 = { x: sx + cellW * 0.3, y: sy + cellH * 0.3 };
                 eye2 = { x: sx + cellW * 0.3, y: sy + cellH * 0.7 };
-              } else if (this.dir.y === 1) { // Facing down
+              } else if (this.dir.y === 1) {
                 eye1 = { x: sx + cellW * 0.3, y: sy + cellH * 0.7 };
                 eye2 = { x: sx + cellW * 0.7, y: sy + cellH * 0.7 };
               }
@@ -632,15 +638,24 @@
 
       <div class="text-left bg-slate-900/90 p-5 rounded-2xl border border-slate-800 space-y-3 text-slate-300 text-sm leading-relaxed">
         <div class="font-bold text-emerald-400 text-base flex items-center gap-2">
-          <span>🐍</span> 遊戲玩法說明：
+          <span>🐍</span> 遊戲玩法與規則：
         </div>
         <ul class="list-disc list-inside space-y-2 text-slate-300">
           <li>單字取自 <strong class="text-white">L01-課本單字.pdf</strong>，題目將以隨機亂數出現。</li>
-          <li>畫面頂部會顯示目標單字與中文釋義，學生需操控貪食蛇<strong class="text-emerald-400">「依序吃掉目標單字的英文字母」</strong>！</li>
-          <li>吃對字母貪食蛇會變長並得分，全數字母吃完即算完成一個單字並播放英語發音。</li>
+          <li>畫面頂部會顯示目標單字與中文釋義，學生需操控貪食蛇<strong class="text-emerald-400">「依序吃對目標單字的英文字母」</strong>！</li>
+          <li><span class="text-rose-400 font-semibold">⚠️ 吃錯死掉規則</span>：畫面上會同時散落 6 個字母泡泡，若<strong class="text-rose-400">吃錯干擾字母、撞牆或撞自己會扣生命心心死掉</strong>！</li>
           <li><span class="text-emerald-400 font-semibold font-mono">鍵盤操作</span>：方向鍵 ⬆️⬇️⬅️➡️ 或 WASD 鍵控制方向。手機亦可點擊下方螢幕按鈕！</li>
-          <li>全數單字全數吃完即可獲得最終勝利！</li>
         </ul>
+      </div>
+
+      <!-- Speed Control Selection -->
+      <div class="flex items-center justify-between bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 text-xs">
+        <span class="text-slate-300 font-bold">選擇貪食蛇移動速度：</span>
+        <div class="flex space-x-2">
+          <button @click="changeSpeedMode('slow')" class="px-3 py-1.5 rounded-lg border font-bold transition" :class="speedMode === 'slow' ? 'bg-emerald-500 text-slate-950 border-emerald-400' : 'bg-slate-800 text-slate-400 border-slate-700'">🐢 慢速</button>
+          <button @click="changeSpeedMode('normal')" class="px-3 py-1.5 rounded-lg border font-bold transition" :class="speedMode === 'normal' ? 'bg-emerald-500 text-slate-950 border-emerald-400' : 'bg-slate-800 text-slate-400 border-slate-700'">🐇 普通</button>
+          <button @click="changeSpeedMode('fast')" class="px-3 py-1.5 rounded-lg border font-bold transition" :class="speedMode === 'fast' ? 'bg-emerald-500 text-slate-950 border-emerald-400' : 'bg-slate-800 text-slate-400 border-slate-700'">⚡ 快速</button>
+        </div>
       </div>
 
       <div class="pt-2">
@@ -679,712 +694,6 @@
         <button @click="setDirection(0, 1)" class="w-14 h-14 rounded-2xl bg-slate-800/90 active:bg-emerald-500 hover:bg-slate-700 text-emerald-400 font-black text-2xl border border-slate-600 shadow-lg flex items-center justify-center transition">▼</button>
       </div>
       <button @click="setDirection(1, 0)" class="w-14 h-14 rounded-2xl bg-slate-800/90 active:bg-emerald-500 hover:bg-slate-700 text-emerald-400 font-black text-2xl border border-slate-600 shadow-lg flex items-center justify-center transition">▶</button>
-    </div>
-
-  </div>
-
-  <!-- GAME OVER / RESTART OVERLAY -->
-  <div x-show="gameState === 'gameover'" style="display: none;" class="relative z-20 flex-grow flex items-center justify-center p-4">
-    <div class="max-w-md w-full glass-panel rounded-3xl p-8 border border-rose-500/50 text-center space-y-6 shadow-2xl">
-      <div class="text-6xl animate-bounce">💥</div>
-      <h2 class="text-3xl font-black font-orbitron text-white">GAME OVER</h2>
-      <p class="text-slate-300 text-sm">生命的次數用盡了！別灰心，再挑戰一次吧！</p>
-
-      <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 flex justify-around">
-        <div>
-          <div class="text-xs text-slate-400">最終得分</div>
-          <div class="text-2xl font-black font-orbitron text-snake-yellow" x-text="score"></div>
-        </div>
-        <div>
-          <div class="text-xs text-slate-400">完成單字數</div>
-          <div class="text-2xl font-black font-orbitron text-emerald-400" x-text="completedCount"></div>
-        </div>
-      </div>
-
-      <div class="flex gap-4">
-        <button @click="startSnake()" class="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold font-orbitron">
-          再試一次 AGAIN
-        </button>
-        <a href="../index.html" class="flex-1 py-3.5 rounded-xl bg-slate-800 text-white font-bold font-orbitron border border-slate-600 text-center block">
-          返回首頁 HOME
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- VICTORY OVERLAY SCREEN -->
-  <div x-show="gameState === 'victory'" style="display: none;" class="relative z-20 flex-grow flex items-center justify-center p-4">
-    <div class="max-w-lg w-full glass-panel rounded-3xl p-8 text-center space-y-6 border border-emerald-500/40 shadow-2xl">
-      <div class="text-6xl animate-bounce">🏆</div>
-      <h2 class="text-3xl font-black font-orbitron text-white">大獲全勝 VICTORY!</h2>
-      <p class="text-slate-300 text-sm">太厲害了！您成功吃完了 L01 課本所有單字！</p>
-
-      <div class="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 grid grid-cols-2 gap-4">
-        <div>
-          <div class="text-xs text-slate-400">總得分</div>
-          <div class="text-3xl font-black font-orbitron text-snake-yellow" x-text="score"></div>
-        </div>
-        <div>
-          <div class="text-xs text-slate-400">完成單字</div>
-          <div class="text-3xl font-black font-orbitron text-emerald-400" x-text="`${completedCount} / ${totalCount}`"></div>
-        </div>
-      </div>
-
-      <div class="flex gap-4">
-        <button @click="startSnake()" class="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold font-orbitron">
-          再玩一次 PLAY AGAIN
-        </button>
-        <a href="../index.html" class="flex-1 py-3.5 rounded-xl bg-slate-800 text-white font-bold font-orbitron border border-slate-600 text-center block">
-          返回首頁 HOME
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer class="relative z-10 w-full py-4 text-center text-xs text-slate-500 border-t border-white/5 bg-slate-950/60">
-    <p>B1L1 單字貪食蛇 &copy; 2026 | 繁體中文 英文單字貪食蛇學習遊戲</p>
-  </footer>
-</body>
-</html>
-
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Alpine.js CDN (Fixed Exact Version 3.14.8) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Noto+Sans+TC:wght@400;600;700;900&family=Fira+Code:wght@600;700&display=swap" rel="stylesheet">
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Noto Sans TC"', 'sans-serif'],
-            orbitron: ['Orbitron', 'sans-serif'],
-            mono: ['"Fira Code"', 'monospace'],
-          },
-          colors: {
-            snake: {
-              950: '#060B14',
-              900: '#0E1726',
-              800: '#17253D',
-              green: '#10B981',
-              cyan: '#00F0FF',
-              pink: '#FF007A',
-              yellow: '#F59E0B',
-              purple: '#8B5CF6'
-            }
-          }
-        }
-      }
-    };
-
-    // Full Vocabulary Data from L01-課本單字
-    const VOCABULARY_LIST = [
-      { word: 'memorable', chinese: '難忘的' },
-      { word: 'memorize', chinese: '記憶；記住' },
-      { word: 'memory', chinese: '回憶；記憶力' },
-      { word: 'reply', chinese: '回答；回覆' },
-      { word: 'yell', chinese: '大喊；大吼' },
-      { word: 'perfect', chinese: '完美的' },
-      { word: 'accidentally', chinese: '意外地；不小心地' },
-      { word: 'accident', chinese: '意外；事故' },
-      { word: 'accidental', chinese: '意外的' },
-      { word: 'failure', chinese: '失敗' },
-      { word: 'recall', chinese: '記起；回想起' },
-      { word: 'presentation', chinese: '報告；介紹' },
-      { word: 'present', chinese: '提交；贈送' },
-      { word: 'skip', chinese: '故意不參加；跳過' },
-      { word: 'ruin', chinese: '破壞；毀壞' },
-      { word: 'embarrassed', chinese: '尷尬的；難堪的' },
-      { word: 'embarrassing', chinese: '令人尷尬的' },
-      { word: 'embarrass', chinese: '使尷尬' },
-      { word: 'embarrassment', chinese: '尷尬；難堪' },
-      { word: 'depressed', chinese: '沮喪的；消沉的' },
-      { word: 'depress', chinese: '使沮喪' },
-      { word: 'depression', chinese: '沮喪；消沉' },
-      { word: 'upset', chinese: '難過的；使沮喪' },
-      { word: 'reflect', chinese: '認真思考；映出' },
-      { word: 'reflection', chinese: '映出的影像' },
-      { word: 'remind', chinese: '提醒；使想起' },
-      { word: 'realize', chinese: '了解；領悟；實現' },
-      { word: 'traditional', chinese: '傳統的' },
-      { word: 'tradition', chinese: '傳統' },
-      { word: 'fortunately', chinese: '幸運地' },
-      { word: 'fortunate', chinese: '幸運的' },
-      { word: 'pajamas', chinese: '睡衣' },
-      { word: 'filter', chinese: '濾鏡' },
-      { word: 'alien', chinese: '外星人' },
-      { word: 'kimchi', chinese: '韓式泡菜' }
-    ];
-
-    // Web Audio Synthesizer
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    let audioCtx = null;
-
-    function getAudioContext() {
-      if (!audioCtx) {
-        audioCtx = new AudioContext();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-      return audioCtx;
-    }
-
-    function PlaySound(type) {
-      try {
-        const ctx = getAudioContext();
-        const now = ctx.currentTime;
-        if (type === 'eat') {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(523.25, now);
-          osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.08);
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.08);
-        } else if (type === 'wordComplete') {
-          const notes = [523.25, 659.25, 783.99, 1046.50];
-          notes.forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-            gain.gain.setValueAtTime(0.25, now + idx * 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.25);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(now + idx * 0.08);
-            osc.stop(now + idx * 0.08 + 0.25);
-          });
-        } else if (type === 'wrong') {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(180, now);
-          osc.frequency.linearRampToValueAtTime(90, now + 0.25);
-          gain.gain.setValueAtTime(0.3, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.25);
-        } else if (type === 'click') {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(600, now);
-          osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-          gain.gain.setValueAtTime(0.15, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.05);
-        } else if (type === 'victory') {
-          const notes = [440, 554.37, 659.25, 880];
-          notes.forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.12);
-            gain.gain.setValueAtTime(0.3, now + idx * 0.12);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.4);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(now + idx * 0.12);
-            osc.stop(now + idx * 0.12 + 0.4);
-          });
-        }
-      } catch (e) {
-        console.log('Audio Error:', e);
-      }
-    }
-
-    function speakText(text) {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = 'en-US';
-        utter.rate = 0.9;
-        window.speechSynthesis.speak(utter);
-      }
-    }
-
-    function game3App() {
-      return {
-        gameState: 'start',
-        soundEnabled: true,
-        wordPool: [],
-        currentWordObj: null,
-        targetLetterIndex: 0,
-        completedCount: 0,
-        remainingCount: 0,
-        totalCount: VOCABULARY_LIST.length,
-        score: 0,
-        lives: 3,
-        gridCols: 22,
-        gridRows: 16,
-        canvas: null,
-        ctx: null,
-        snake: [],
-        dir: { x: 1, y: 0 },
-        nextDir: { x: 1, y: 0 },
-        lettersOnGrid: [], // [{x, y, char, isCorrect}]
-        gameInterval: null,
-        speed: 130, // ms per tick
-
-        initSnakeGame() {
-          this.canvas = document.getElementById('snakeCanvas');
-          if (!this.canvas) return;
-          this.ctx = this.canvas.getContext('2d');
-          this.resizeCanvas();
-          window.addEventListener('resize', () => this.resizeCanvas());
-
-          // Keydown Event Listener
-          window.addEventListener('keydown', (e) => {
-            if (this.gameState !== 'playing') return;
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') this.setDirection(0, -1);
-            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') this.setDirection(0, 1);
-            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.setDirection(-1, 0);
-            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.setDirection(1, 0);
-          });
-        },
-
-        resizeCanvas() {
-          if (!this.canvas) return;
-          const container = this.canvas.parentElement;
-          if (container) {
-            const size = Math.min(container.clientWidth, window.innerHeight - 240);
-            this.canvas.width = size;
-            this.canvas.height = Math.floor(size * (this.gridRows / this.gridCols));
-          }
-        },
-
-        playSound(type) {
-          if (this.soundEnabled) PlaySound(type);
-        },
-
-        toggleSound() {
-          this.soundEnabled = !this.soundEnabled;
-          this.playSound('click');
-        },
-
-        startSnake() {
-          this.playSound('click');
-          this.gameState = 'playing';
-          this.score = 0;
-          this.lives = 3;
-          this.completedCount = 0;
-
-          // Shuffle word pool
-          this.wordPool = [...VOCABULARY_LIST].sort(() => Math.random() - 0.5);
-          this.totalCount = this.wordPool.length;
-          this.remainingCount = this.totalCount;
-
-          this.resetSnakePosition();
-          this.loadNextWord();
-
-          if (this.gameInterval) clearInterval(this.gameInterval);
-          this.gameInterval = setInterval(() => this.gameTick(), this.speed);
-        },
-
-        resetSnakePosition() {
-          const startX = 6;
-          const startY = Math.floor(this.gridRows / 2);
-          this.snake = [
-            { x: startX, y: startY },
-            { x: startX - 1, y: startY },
-            { x: startX - 2, y: startY }
-          ];
-          this.dir = { x: 1, y: 0 };
-          this.nextDir = { x: 1, y: 0 };
-        },
-
-        setDirection(dx, dy) {
-          // Prevent 180-degree immediate reversal
-          if (dx === -this.dir.x && dy === -this.dir.y) return;
-          this.nextDir = { x: dx, y: dy };
-        },
-
-        loadNextWord() {
-          if (this.wordPool.length === 0) {
-            this.triggerVictory();
-            return;
-          }
-
-          this.currentWordObj = this.wordPool.shift();
-          this.remainingCount = this.wordPool.length + 1;
-          this.targetLetterIndex = 0;
-
-          if (this.soundEnabled) {
-            speakText(this.currentWordObj.word);
-          }
-
-          this.spawnLetters();
-        },
-
-        spawnLetters() {
-          this.lettersOnGrid = [];
-          const word = this.currentWordObj.word.toLowerCase();
-          const targetChar = word[this.targetLetterIndex];
-
-          // 1. Spawn Target Letter
-          const targetPos = this.getRandomEmptyGridPos();
-          this.lettersOnGrid.push({
-            x: targetPos.x,
-            y: targetPos.y,
-            char: targetChar.toUpperCase(),
-            isTarget: true
-          });
-
-          // 2. Spawn 3 Decoy Letters
-          const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-          for (let i = 0; i < 3; i++) {
-            const decoyPos = this.getRandomEmptyGridPos();
-            let randomChar = alphabet[Math.floor(Math.random() * alphabet.length)].toUpperCase();
-            if (randomChar === targetChar.toUpperCase()) {
-              randomChar = 'Z';
-            }
-            this.lettersOnGrid.push({
-              x: decoyPos.x,
-              y: decoyPos.y,
-              char: randomChar,
-              isTarget: false
-            });
-          }
-        },
-
-        getRandomEmptyGridPos() {
-          let pos;
-          let conflict = true;
-          while (conflict) {
-            pos = {
-              x: Math.floor(Math.random() * this.gridCols),
-              y: Math.floor(Math.random() * this.gridRows)
-            };
-            // Check snake collision
-            const snakeHit = this.snake.some(seg => seg.x === pos.x && seg.y === pos.y);
-            // Check letter collision
-            const letterHit = this.lettersOnGrid.some(l => l.x === pos.x && l.y === pos.y);
-            if (!snakeHit && !letterHit) conflict = false;
-          }
-          return pos;
-        },
-
-        gameTick() {
-          if (this.gameState !== 'playing') return;
-
-          this.dir = { ...this.nextDir };
-          const head = { x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y };
-
-          // Wall Collision check
-          if (head.x < 0 || head.x >= this.gridCols || head.y < 0 || head.y >= this.gridRows) {
-            this.handleCollision('撞到牆壁！');
-            return;
-          }
-
-          // Self Collision check
-          if (this.snake.some(seg => seg.x === head.x && seg.y === head.y)) {
-            this.handleCollision('撞到自己身體！');
-            return;
-          }
-
-          // Move Head
-          this.snake.unshift(head);
-
-          // Check Letter Collision
-          const ateIndex = this.lettersOnGrid.findIndex(l => l.x === head.x && l.y === head.y);
-
-          if (ateIndex !== -1) {
-            const eaten = this.lettersOnGrid[ateIndex];
-            const targetChar = this.currentWordObj.word[this.targetLetterIndex].toUpperCase();
-
-            if (eaten.char === targetChar) {
-              // EAT CORRECT LETTER!
-              this.playSound('eat');
-              this.score += 50;
-              this.targetLetterIndex++;
-
-              // Check if word completed!
-              if (this.targetLetterIndex >= this.currentWordObj.word.length) {
-                this.playSound('wordComplete');
-                this.score += 200;
-                this.completedCount++;
-                this.remainingCount = this.wordPool.length;
-
-                // Move next word
-                setTimeout(() => this.loadNextWord(), 600);
-              } else {
-                // Spawn next set of letters
-                this.spawnLetters();
-              }
-            } else {
-              // EAT WRONG DECOY LETTER
-              this.playSound('wrong');
-              this.score = Math.max(0, this.score - 20);
-              this.snake.pop(); // Lose tail segment
-              this.handleCollision(`吃錯字母 (${eaten.char})，目標是 ${targetChar}！`);
-              return;
-            }
-          } else {
-            // Keep normal length
-            this.snake.pop();
-          }
-
-          this.drawSnakeScene();
-        },
-
-        handleCollision(reason) {
-          this.playSound('wrong');
-          this.lives--;
-
-          if (this.lives <= 0) {
-            if (this.gameInterval) clearInterval(this.gameInterval);
-            this.gameState = 'gameover';
-          } else {
-            // Respawn snake position but keep progress
-            this.resetSnakePosition();
-            this.spawnLetters();
-          }
-        },
-
-        drawSnakeScene() {
-          if (!this.ctx) return;
-          const w = this.canvas.width;
-          const h = this.canvas.height;
-          const cellW = w / this.gridCols;
-          const cellH = h / this.gridRows;
-
-          // Clear Grid
-          this.ctx.fillStyle = '#090F1E';
-          this.ctx.fillRect(0, 0, w, h);
-
-          // Draw Grid Lines (Subtle)
-          this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
-          this.ctx.lineWidth = 1;
-          for (let c = 0; c <= this.gridCols; c++) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(c * cellW, 0);
-            this.ctx.lineTo(c * cellW, h);
-            this.ctx.stroke();
-          }
-          for (let r = 0; r <= this.gridRows; r++) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, r * cellH);
-            this.ctx.lineTo(w, r * cellH);
-            this.ctx.stroke();
-          }
-
-          // Draw Letters on Grid
-          for (let l of this.lettersOnGrid) {
-            const lx = l.x * cellW;
-            const ly = l.y * cellH;
-
-            this.ctx.save();
-            this.ctx.shadowBlur = l.isTarget ? 15 : 5;
-            this.ctx.shadowColor = l.isTarget ? '#00F0FF' : '#FF007A';
-
-            this.ctx.fillStyle = l.isTarget ? 'rgba(0, 240, 255, 0.25)' : 'rgba(255, 0, 122, 0.25)';
-            this.ctx.strokeStyle = l.isTarget ? '#00F0FF' : '#FF007A';
-            this.ctx.lineWidth = 2;
-
-            this.ctx.beginPath();
-            this.ctx.arc(lx + cellW / 2, ly + cellH / 2, Math.min(cellW, cellH) * 0.4, 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.stroke();
-
-            this.ctx.shadowBlur = 0;
-            this.ctx.fillStyle = '#FFFFFF';
-            this.ctx.font = 'bold 16px "Fira Code", monospace';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(l.char, lx + cellW / 2, ly + cellH / 2 + 1);
-            this.ctx.restore();
-          }
-
-          // Draw Snake Body
-          for (let i = 0; i < this.snake.length; i++) {
-            const seg = this.snake[i];
-            const sx = seg.x * cellW;
-            const sy = seg.y * cellH;
-
-            this.ctx.save();
-            if (i === 0) {
-              // Snake Head
-              this.ctx.shadowBlur = 15;
-              this.ctx.shadowColor = '#10B981';
-              this.ctx.fillStyle = '#10B981';
-            } else {
-              // Snake Body Segment
-              this.ctx.shadowBlur = 5;
-              this.ctx.shadowColor = '#059669';
-              this.ctx.fillStyle = `rgba(16, 185, 129, ${Math.max(0.3, 1 - i * 0.05)})`;
-            }
-
-            this.ctx.beginPath();
-            this.ctx.roundRect 
-              ? this.ctx.roundRect(sx + 2, sy + 2, cellW - 4, cellH - 4, 6)
-              : this.ctx.rect(sx + 2, sy + 2, cellW - 4, cellH - 4);
-            this.ctx.fill();
-            this.ctx.restore();
-          }
-        },
-
-        triggerVictory() {
-          if (this.gameInterval) clearInterval(this.gameInterval);
-          this.gameState = 'victory';
-          this.playSound('victory');
-        },
-
-        get targetWordDisplay() {
-          if (!this.currentWordObj) return '';
-          const word = this.currentWordObj.word;
-          let html = '';
-          for (let i = 0; i < word.length; i++) {
-            if (i < this.targetLetterIndex) {
-              html += `<span class="text-emerald-400 font-black border-b-2 border-emerald-400 mx-0.5">${word[i]}</span>`;
-            } else if (i === this.targetLetterIndex) {
-              html += `<span class="text-space-cyan font-black border-b-2 border-space-cyan animate-pulse mx-0.5">${word[i]}</span>`;
-            } else {
-              html += `<span class="text-slate-500 font-normal mx-0.5">${word[i]}</span>`;
-            }
-          }
-          return html;
-        }
-      };
-    }
-  </script>
-  <style>
-    body {
-      background-color: #060B14;
-      color: #F1F5F9;
-      min-height: 100vh;
-      overflow-x: hidden;
-      user-select: none;
-    }
-    .glass-panel {
-      background: rgba(14, 23, 38, 0.8);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(0, 240, 255, 0.2);
-    }
-    .neon-border-green {
-      box-shadow: 0 0 15px rgba(16, 185, 129, 0.3), inset 0 0 15px rgba(16, 185, 129, 0.2);
-    }
-  </style>
-</head>
-<body class="min-h-screen flex flex-col justify-between font-sans relative" x-data="game3App()" x-init="initSnakeGame()">
-
-  <!-- Top Header Navigation -->
-  <header class="relative z-10 w-full px-6 py-4 glass-panel border-b border-cyan-500/20">
-    <div class="max-w-6xl mx-auto flex justify-between items-center">
-      <div class="flex items-center space-x-4">
-        <a href="../index.html" @click="playSound('click')" class="px-3.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-600 flex items-center gap-1.5 transition">
-          <span>&larr;</span> 返回首頁
-        </a>
-        <div class="h-4 w-px bg-slate-700"></div>
-        <h1 class="text-lg md:text-xl font-black font-orbitron text-white flex items-center gap-2">
-          <span class="text-emerald-400">B1L1</span> 單字貪食蛇
-        </h1>
-      </div>
-
-      <!-- Live HUD -->
-      <div class="flex items-center space-x-4 text-sm font-orbitron" x-show="gameState === 'playing'" style="display: none;">
-        <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700">
-          <span class="text-xs text-slate-400">完成度</span>
-          <span class="font-bold text-space-cyan" x-text="`${completedCount} / ${totalCount}`"></span>
-        </div>
-
-        <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700">
-          <span class="text-xs text-slate-400">得分</span>
-          <span class="font-bold text-snake-yellow" x-text="score"></span>
-        </div>
-
-        <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700">
-          <span class="text-xs text-slate-400">生命</span>
-          <span class="font-bold text-rose-400" x-text="'❤️'.repeat(lives)"></span>
-        </div>
-
-        <button @click="toggleSound()" class="p-2 rounded-lg bg-slate-800 text-xs text-slate-300 hover:bg-slate-700 border border-slate-600">
-          <span x-text="soundEnabled ? '🔊' : '🔇'"></span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- START OVERLAY SCREEN -->
-  <div x-show="gameState === 'start'" class="relative z-20 flex-grow flex items-center justify-center p-4">
-    <div class="max-w-2xl w-full glass-panel rounded-3xl p-8 md:p-10 border border-emerald-500/40 neon-border-green space-y-6 text-center shadow-2xl">
-      
-      <div class="inline-block px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-orbitron text-xs font-bold tracking-widest uppercase">
-        Snake Vocabulary Game
-      </div>
-
-      <h2 class="text-3xl md:text-5xl font-black font-orbitron text-white">
-        高一英文 B1L1 <br/>
-        <span class="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-snake-cyan to-snake-pink">
-          單字貪食蛇大挑戰
-        </span>
-      </h2>
-
-      <div class="text-left bg-slate-900/90 p-5 rounded-2xl border border-slate-800 space-y-3 text-slate-300 text-sm leading-relaxed">
-        <div class="font-bold text-emerald-400 text-base flex items-center gap-2">
-          <span>🐍</span> 遊戲玩法說明：
-        </div>
-        <ul class="list-disc list-inside space-y-2 text-slate-300">
-          <li>單字取自 <strong class="text-white">L01-課本單字.pdf</strong>，題目將以隨機亂數出現。</li>
-          <li>畫面頂部會顯示目標單字與中文釋義，學生需操控貪食蛇<strong class="text-emerald-400">「依序吃掉目標單字的英文字母」</strong>！</li>
-          <li>吃對字母貪食蛇會變長並得分，全數字母吃完即算完成一個單字並播放英語發音。</li>
-          <li><span class="text-rose-400 font-semibold font-mono">鍵盤操作</span>：方向鍵 ⬆️⬇️⬅️➡️ 或 WASD 鍵控制方向。手機亦可點擊下方螢幕按鈕！</li>
-          <li>全數單字全數吃完即可獲得最終勝利！</li>
-        </ul>
-      </div>
-
-      <div class="pt-2">
-        <button @click="startSnake()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-purple-600 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black font-orbitron text-lg tracking-wider transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl shadow-emerald-500/25">
-          開始貪食蛇遊戲 START SNAKE &rarr;
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- IN-GAME PLAYING CONTAINER -->
-  <div x-show="gameState === 'playing'" style="display: none;" class="relative z-10 max-w-4xl w-full mx-auto px-4 py-4 flex-grow flex flex-col justify-between items-center space-y-4">
-    
-    <!-- Target Word Bar -->
-    <div class="w-full glass-panel rounded-2xl p-4 border border-emerald-500/30 flex flex-col sm:flex-row justify-between items-center gap-3">
-      <div>
-        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block">當前目標單字：</span>
-        <div class="text-2xl font-mono tracking-widest text-white mt-1" x-html="targetWordDisplay"></div>
-      </div>
-      <div class="text-right">
-        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block">中文釋義：</span>
-        <div class="text-lg font-bold text-space-cyan mt-0.5" x-text="currentWordObj ? currentWordObj.chinese : ''"></div>
-      </div>
-    </div>
-
-    <!-- Snake Canvas -->
-    <div class="w-full flex justify-center items-center">
-      <canvas id="snakeCanvas" class="rounded-2xl border-2 border-emerald-500/40 shadow-2xl bg-slate-950"></canvas>
-    </div>
-
-    <!-- On-Screen D-Pad Controls for Mobile/Touch -->
-    <div class="flex justify-center items-center space-x-3 pt-2 sm:hidden">
-      <button @click="setDirection(-1, 0)" class="w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 font-bold text-xl border border-slate-700">◀</button>
-      <div class="flex flex-col space-y-2">
-        <button @click="setDirection(0, -1)" class="w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 font-bold text-xl border border-slate-700">▲</button>
-        <button @click="setDirection(0, 1)" class="w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 font-bold text-xl border border-slate-700">▼</button>
-      </div>
-      <button @click="setDirection(1, 0)" class="w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 font-bold text-xl border border-slate-700">▶</button>
     </div>
 
   </div>
